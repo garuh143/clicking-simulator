@@ -167,7 +167,12 @@
             bgColor: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
             cursorType: 'default',
             explosionCount: 0,
-            purchasedItems: []
+            purchasedItems: [],
+            selectedItems: {
+                color: 'color_white',
+                background: 'bg_dark',
+                cursor: 'cursor_default'
+            }
         };
 
         // Shop Items
@@ -346,14 +351,25 @@
                 const isPurchased = gameState.purchasedItems.includes(item.id);
                 const canAfford = gameState.currency >= item.cost;
                 
+                // Check if this item is currently selected (for colors, backgrounds, cursors)
+                let isSelected = false;
+                if (selectedCategory === 'colors' && gameState.selectedItems.color === item.id) isSelected = true;
+                if (selectedCategory === 'backgrounds' && gameState.selectedItems.background === item.id) isSelected = true;
+                if (selectedCategory === 'cursors' && gameState.selectedItems.cursor === item.id) isSelected = true;
+
+                // Upgrades are cumulative, so they don't have selection state
+                const canClick = canAfford && !isPurchased || isPurchased && selectedCategory !== 'upgrades';
+                
                 return `
                     <div class="p-4 rounded-xl border-2 transition-all ${
-                        isPurchased
+                        isSelected
+                            ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-300'
+                            : isPurchased
                             ? 'border-green-400 bg-green-50'
                             : canAfford
                             ? 'border-gray-200 bg-white hover:border-indigo-400 hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98]'
                             : 'border-gray-200 bg-gray-50 opacity-50'
-                    }" ${canAfford && !isPurchased ? `onclick="purchaseItem('${item.id}')"` : ''}>
+                    }" ${canClick ? `onclick="handleShopItemClick('${item.id}')"` : ''}>
                         <div class="flex items-center gap-4">
                             <div class="text-4xl">${item.icon}</div>
                             <div class="flex-1">
@@ -361,8 +377,13 @@
                                 <p class="text-sm text-gray-600">${item.desc}</p>
                             </div>
                             <div class="text-right">
-                                <div class="text-2xl font-black ${canAfford ? 'text-indigo-600' : 'text-gray-400'}">${item.cost}</div>
-                                ${isPurchased ? '<div class="text-xs text-green-600 font-bold mt-1">✓ Owned</div>' : ''}
+                                ${isPurchased 
+                                    ? (isSelected 
+                                        ? '<div class="text-lg font-bold text-indigo-600">✓ Active</div>'
+                                        : '<div class="text-lg font-bold text-green-600">✓ Owned</div>'
+                                      )
+                                    : `<div class="text-2xl font-black ${canAfford ? 'text-indigo-600' : 'text-gray-400'}">${item.cost}</div>`
+                                }
                             </div>
                         </div>
                     </div>
@@ -370,25 +391,53 @@
             }).join('');
         }
 
-        // Purchase Item
-        function purchaseItem(itemId) {
+        // Handle Shop Item Click (Purchase or Select)
+        function handleShopItemClick(itemId) {
             const item = findItemById(itemId);
-            if (!item || gameState.currency < item.cost) return;
+            if (!item) return;
 
-            gameState.currency -= item.cost;
-            gameState.purchasedItems.push(itemId);
+            const isPurchased = gameState.purchasedItems.includes(itemId);
 
-            if (item.power) {
-                gameState.baseClickPower += item.power;
-            } else if (item.color) {
-                gameState.textColor = item.color;
-                clickText.style.color = item.color;
-            } else if (item.bg) {
-                gameState.bgColor = item.bg;
-                gameBody.style.background = item.bg;
-            } else if (item.cursor) {
-                gameState.cursorType = item.cursor;
-                applyCursor(item.cursor);
+            if (!isPurchased) {
+                // Purchase new item
+                if (gameState.currency < item.cost) return;
+
+                gameState.currency -= item.cost;
+                gameState.purchasedItems.push(itemId);
+
+                // Select the newly purchased item
+                if (selectedCategory === 'colors') {
+                    gameState.selectedItems.color = itemId;
+                    gameState.textColor = item.color;
+                    clickText.style.color = item.color;
+                } else if (selectedCategory === 'backgrounds') {
+                    gameState.selectedItems.background = itemId;
+                    gameState.bgColor = item.bg;
+                    gameBody.style.background = item.bg;
+                } else if (selectedCategory === 'cursors') {
+                    gameState.selectedItems.cursor = itemId;
+                    gameState.cursorType = item.cursor;
+                    applyCursor(item.cursor);
+                } else if (item.power) {
+                    // Upgrades are cumulative
+                    gameState.baseClickPower += item.power;
+                }
+            } else {
+                // Select previously purchased item (for colors, backgrounds, cursors)
+                if (selectedCategory === 'colors') {
+                    gameState.selectedItems.color = itemId;
+                    gameState.textColor = item.color;
+                    clickText.style.color = item.color;
+                } else if (selectedCategory === 'backgrounds') {
+                    gameState.selectedItems.background = itemId;
+                    gameState.bgColor = item.bg;
+                    gameBody.style.background = item.bg;
+                } else if (selectedCategory === 'cursors') {
+                    gameState.selectedItems.cursor = itemId;
+                    gameState.cursorType = item.cursor;
+                    applyCursor(item.cursor);
+                }
+                // Upgrades cannot be re-selected (they're cumulative)
             }
 
             updateUI();
