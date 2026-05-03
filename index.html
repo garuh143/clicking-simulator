@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตออบขี้ Clicking Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes explode {
+            0% { transform: scale(1) rotate(0deg); opacity: 1; }
+            50% { transform: scale(3) rotate(180deg); opacity: 0.8; }
+            100% { transform: scale(0) rotate(360deg); opacity: 0; }
+        }
+        
+        @keyframes particle {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-150px) scale(0.5); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .exploding {
+            animation: explode 0.8s ease-out forwards;
+        }
+        
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            animation: particle 1s ease-out forwards;
+            font-size: 24px;
+        }
+        
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .pulsing {
+            animation: pulse 0.3s ease-out;
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .custom-cursor {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><text y="24" font-size="24">👆</text></svg>'), auto;
+        }
+        
+        .cursor-pointer-custom {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><text y="24" font-size="24">👆</text></svg>'), pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen overflow-hidden transition-all duration-500" id="gameBody">
+    <!-- Header Stats -->
+    <div class="fixed top-0 left-0 right-0 z-50 p-4 bg-black/30 backdrop-blur-sm">
+        <div class="max-w-4xl mx-auto flex justify-between items-center gap-4 flex-wrap">
+            <div class="flex gap-6">
+                <div class="text-center">
+                    <div class="text-white/70 text-xs font-bold tracking-wider mb-1">CLICKS</div>
+                    <div class="text-white text-2xl font-black" id="totalClicks">0</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-white/70 text-xs font-bold tracking-wider mb-1">CURRENCY 💰</div>
+                    <div class="text-white text-2xl font-black" id="currency">0</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-white/70 text-xs font-bold tracking-wider mb-1">POWER</div>
+                    <div class="text-white text-2xl font-black" id="clickPower">1</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-white/70 text-xs font-bold tracking-wider mb-1">EXPLOSIONS 💥</div>
+                    <div class="text-white text-2xl font-black" id="explosions">0</div>
+                </div>
+            </div>
+            <button id="shopBtn" class="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl text-lg font-bold transition-all hover:scale-105 active:scale-95 cursor-pointer-custom">
+                🛒 Shop
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Area -->
+    <div class="min-h-screen flex items-center justify-center pt-20" id="gameArea">
+        <div id="clickText" class="text-white font-black cursor-pointer-custom select-none floating transition-all duration-150 hover:scale-110 active:scale-95 text-center"
+             style="font-size: 80px; text-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+            ตออบขี้
+        </div>
+        <div class="absolute bottom-10 text-white/50 text-sm font-medium">
+            Click to make it grow! 💥
+        </div>
+    </div>
+
+    <!-- Shop Panel -->
+    <div id="shopPanel" class="fixed top-0 right-0 w-full md:w-[500px] h-full bg-white shadow-2xl z-[100] transform translate-x-full transition-transform duration-300">
+        <div class="h-full flex flex-col">
+            <!-- Shop Header -->
+            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-black mb-1">🛒 Upgrade Shop</h2>
+                        <p class="text-white/80 text-sm">Boost your clicking power!</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-white/70 font-bold mb-1">YOUR BALANCE</div>
+                        <div class="text-4xl font-black" id="shopCurrency">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Tabs -->
+            <div class="p-4 bg-gray-50 border-b border-gray-200">
+                <div class="flex gap-2 flex-wrap">
+                    <button class="category-btn px-4 py-2 rounded-full text-sm font-bold transition-all bg-indigo-600 text-white" data-category="upgrades">
+                        ⚡ Upgrades
+                    </button>
+                    <button class="category-btn px-4 py-2 rounded-full text-sm font-bold transition-all bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="colors">
+                        🎨 Colors
+                    </button>
+                    <button class="category-btn px-4 py-2 rounded-full text-sm font-bold transition-all bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="backgrounds">
+                        🌈 Backgrounds
+                    </button>
+                    <button class="category-btn px-4 py-2 rounded-full text-sm font-bold transition-all bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="cursors">
+                        🖱️ Cursors
+                    </button>
+                </div>
+            </div>
+
+            <!-- Shop Items -->
+            <div id="shopItems" class="flex-1 overflow-y-auto p-4 space-y-3">
+                <!-- Items will be loaded here -->
+            </div>
+
+            <!-- Close Button -->
+            <button id="closeShop" class="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-2xl font-bold transition-all hover:scale-110">
+                ✕
+            </button>
+        </div>
+    </div>
+
+    <!-- Explosion Effect Container -->
+    <div id="explosionContainer" class="fixed inset-0 pointer-events-none z-[200] flex items-center justify-center">
+        <!-- Explosion effects will be added here -->
+    </div>
+
+    <script>
+        // Game State
+        let gameState = {
+            totalClicks: 0,
+            currency: 0,
+            baseClickPower: 1,
+            textSize: 80,
+            textColor: '#ffffff',
+            bgColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            cursorType: 'default',
+            explosionCount: 0,
+            purchasedItems: []
+        };
+
+        // Shop Items
+        const shopItems = {
+            upgrades: [
+                { id: 'click_basic', name: 'Basic Click', desc: '+1 click power', cost: 10, power: 1, icon: '👆' },
+                { id: 'click_double', name: 'Double Click', desc: '+2 click power', cost: 50, power: 2, icon: '👆👆' },
+                { id: 'click_triple', name: 'Triple Click', desc: '+3 click power', cost: 150, power: 3, icon: '👆👆👆' },
+                { id: 'click_super', name: 'Super Click', desc: '+5 click power', cost: 500, power: 5, icon: '⚡' },
+                { id: 'click_mega', name: 'Mega Click', desc: '+10 click power', cost: 2000, power: 10, icon: '💥' },
+                { id: 'click_ultra', name: 'Ultra Click', desc: '+25 click power', cost: 10000, power: 25, icon: '🌟' }
+            ],
+            colors: [
+                { id: 'color_white', name: 'White', desc: 'Classic white text', cost: 20, color: '#ffffff', icon: '⚪' },
+                { id: 'color_yellow', name: 'Yellow', desc: 'Bright yellow text', cost: 50, color: '#fbbf24', icon: '🟡' },
+                { id: 'color_pink', name: 'Pink', desc: 'Lovely pink text', cost: 100, color: '#ec4899', icon: '🩷' },
+                { id: 'color_cyan', name: 'Cyan', desc: 'Cool cyan text', cost: 150, color: '#06b6d4', icon: '🔵' },
+                { id: 'color_orange', name: 'Orange', desc: 'Vibrant orange text', cost: 200, color: '#f97316', icon: '🟠' },
+                { id: 'color_green', name: 'Green', desc: 'Fresh green text', cost: 250, color: '#22c55e', icon: '🟢' }
+            ],
+            backgrounds: [
+                { id: 'bg_purple', name: 'Purple Dream', desc: 'Purple gradient', cost: 30, bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', icon: '🟣' },
+                { id: 'bg_blue', name: 'Ocean Blue', desc: 'Blue gradient', cost: 80, bg: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)', icon: '🌊' },
+                { id: 'bg_red', name: 'Sunset Red', desc: 'Red gradient', cost: 120, bg: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)', icon: '🌅' },
+                { id: 'bg_green', name: 'Forest Green', desc: 'Green gradient', cost: 180, bg: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', icon: '🌲' },
+                { id: 'bg_dark', name: 'Dark Mode', desc: 'Dark gradient', cost: 250, bg: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)', icon: '🌙' },
+                { id: 'bg_rainbow', name: 'Rainbow', desc: 'Rainbow gradient', cost: 500, bg: 'linear-gradient(135deg, #f87171 0%, #fbbf24 20%, #34d399 40%, #60a5fa 60%, #a78bfa 80%, #f472b6 100%)', icon: '🌈' }
+            ],
+            cursors: [
+                { id: 'cursor_default', name: 'Default', desc: 'Standard cursor', cost: 25, cursor: 'default', icon: '👆' },
+                { id: 'cursor_hand', name: 'Hand Pointer', desc: 'Hand cursor', cost: 75, cursor: 'pointer', icon: '👋' },
+                { id: 'cursor_crosshair', name: 'Crosshair', desc: 'Crosshair cursor', cost: 150, cursor: 'crosshair', icon: '🎯' },
+                { id: 'cursor_grab', name: 'Grab', desc: 'Grab cursor', cost: 250, cursor: 'grab', icon: '🤚' },
+                { id: 'cursor_emoji', name: 'Emoji', desc: 'Emoji cursor', cost: 500, cursor: 'emoji', icon: '😊' }
+            ]
+        };
+
+        // DOM Elements
+        const gameBody = document.getElementById('gameBody');
+        const gameArea = document.getElementById('gameArea');
+        const clickText = document.getElementById('clickText');
+        const shopBtn = document.getElementById('shopBtn');
+        const shopPanel = document.getElementById('shopPanel');
+        const closeShop = document.getElementById('closeShop');
+        const shopItemsContainer = document.getElementById('shopItems');
+        const categoryBtns = document.querySelectorAll('.category-btn');
+        const explosionContainer = document.getElementById('explosionContainer');
+
+        let selectedCategory = 'upgrades';
+
+        // Load/Save Game
+        function loadGame() {
+            const saved = localStorage.getItem('clickingSimulatorGame');
+            if (saved) {
+                try {
+                    gameState = JSON.parse(saved);
+                    applyGameSettings();
+                } catch (e) {
+                    console.error('Failed to load game:', e);
+                }
+            }
+        }
+
+        function saveGame() {
+            localStorage.setItem('clickingSimulatorGame', JSON.stringify(gameState));
+        }
+
+        // Apply Game Settings
+        function applyGameSettings() {
+            gameBody.style.background = gameState.bgColor;
+            clickText.style.color = gameState.textColor;
+            clickText.style.fontSize = gameState.textSize + 'px';
+            applyCursor(gameState.cursorType);
+            updateUI();
+        }
+
+        // Apply Cursor
+        function applyCursor(cursorType) {
+            if (cursorType === 'emoji') {
+                gameBody.classList.add('custom-cursor');
+                clickText.classList.add('cursor-pointer-custom');
+            } else {
+                gameBody.classList.remove('custom-cursor');
+                clickText.classList.remove('cursor-pointer-custom');
+                clickText.style.cursor = cursorType;
+            }
+        }
+
+        // Calculate Total Power
+        function calculateTotalPower() {
+            let power = gameState.baseClickPower;
+            return power;
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('totalClicks').textContent = gameState.totalClicks;
+            document.getElementById('currency').textContent = gameState.currency;
+            document.getElementById('clickPower').textContent = calculateTotalPower();
+            document.getElementById('shopCurrency').textContent = gameState.currency;
+            document.getElementById('explosions').textContent = gameState.explosionCount;
+        }
+
+        // Handle Click
+        function handleClick(e) {
+            const power = calculateTotalPower();
+            gameState.totalClicks += power;
+            gameState.currency += power;
+            
+            // Grow text
+            gameState.textSize = Math.min(gameState.textSize + 3, 200);
+            clickText.style.fontSize = gameState.textSize + 'px';
+            
+            // Create particles
+            createParticles(e.clientX, e.clientY, 5);
+            
+            // Pulse effect
+            clickText.classList.add('pulsing');
+            setTimeout(() => clickText.classList.remove('pulsing'), 300);
+
+            // Check for explosion
+            if (gameState.textSize >= 200) {
+                triggerExplosion();
+            }
+
+            updateUI();
+            saveGame();
+        }
+
+        // Create Particles
+        function createParticles(x, y, count) {
+            const emojis = ['✨', '💫', '⭐', '💥', '🌟', '💰', '🎉', '🔥'];
+            for (let i = 0; i < count; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                particle.style.left = (x + (Math.random() - 0.5) * 50) + 'px';
+                particle.style.top = (y + (Math.random() - 0.5) * 50) + 'px';
+                particle.style.fontSize = (20 + Math.random() * 20) + 'px';
+                document.body.appendChild(particle);
+                setTimeout(() => particle.remove(), 1000);
+            }
+        }
+
+        // Trigger Explosion
+        function triggerExplosion() {
+            gameState.explosionCount++;
+            gameState.textSize = 80;
+            
+            // Create explosion effect
+            const explosion = document.createElement('div');
+            explosion.className = 'text-9xl exploding';
+            explosion.textContent = '💥';
+            explosionContainer.appendChild(explosion);
+            
+            // Give bonus currency
+            const bonus = 100 * gameState.explosionCount;
+            gameState.currency += bonus;
+            
+            // Create lots of particles
+            const rect = clickText.getBoundingClientRect();
+            createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, 20);
+            
+            setTimeout(() => {
+                explosion.remove();
+                clickText.style.fontSize = gameState.textSize + 'px';
+                updateUI();
+                saveGame();
+            }, 800);
+        }
+
+        // Render Shop
+        function renderShop() {
+            const items = shopItems[selectedCategory] || [];
+            shopItemsContainer.innerHTML = items.map(item => {
+                const isPurchased = gameState.purchasedItems.includes(item.id);
+                const canAfford = gameState.currency >= item.cost;
+                
+                return `
+                    <div class="p-4 rounded-xl border-2 transition-all ${
+                        isPurchased
+                            ? 'border-green-400 bg-green-50'
+                            : canAfford
+                            ? 'border-gray-200 bg-white hover:border-indigo-400 hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98]'
+                            : 'border-gray-200 bg-gray-50 opacity-50'
+                    }" ${canAfford && !isPurchased ? `onclick="purchaseItem('${item.id}')"` : ''}>
+                        <div class="flex items-center gap-4">
+                            <div class="text-4xl">${item.icon}</div>
+                            <div class="flex-1">
+                                <h3 class="font-bold text-gray-900 text-lg">${item.name}</h3>
+                                <p class="text-sm text-gray-600">${item.desc}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-black ${canAfford ? 'text-indigo-600' : 'text-gray-400'}">${item.cost}</div>
+                                ${isPurchased ? '<div class="text-xs text-green-600 font-bold mt-1">✓ Owned</div>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Purchase Item
+        function purchaseItem(itemId) {
+            const item = findItemById(itemId);
+            if (!item || gameState.currency < item.cost) return;
+
+            gameState.currency -= item.cost;
+            gameState.purchasedItems.push(itemId);
+
+            if (item.power) {
+                gameState.baseClickPower += item.power;
+            } else if (item.color) {
+                gameState.textColor = item.color;
+                clickText.style.color = item.color;
+            } else if (item.bg) {
+                gameState.bgColor = item.bg;
+                gameBody.style.background = item.bg;
+            } else if (item.cursor) {
+                gameState.cursorType = item.cursor;
+                applyCursor(item.cursor);
+            }
+
+            updateUI();
+            renderShop();
+            saveGame();
+        }
+
+        function findItemById(id) {
+            for (const category in shopItems) {
+                const item = shopItems[category].find(i => i.id === id);
+                if (item) return item;
+            }
+            return null;
+        }
+
+        // Event Listeners
+        gameArea.addEventListener('click', handleClick);
+        
+        shopBtn.addEventListener('click', () => {
+            shopPanel.classList.remove('translate-x-full');
+            shopPanel.classList.add('slide-in');
+            renderShop();
+        });
+
+        closeShop.addEventListener('click', () => {
+            shopPanel.classList.add('translate-x-full');
+        });
+
+        categoryBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                categoryBtns.forEach(b => {
+                    b.classList.remove('bg-indigo-600', 'text-white');
+                    b.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                btn.classList.remove('bg-gray-200', 'text-gray-700');
+                btn.classList.add('bg-indigo-600', 'text-white');
+                selectedCategory = btn.dataset.category;
+                renderShop();
+            });
+        });
+
+        // Close shop when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!shopPanel.contains(e.target) && !shopBtn.contains(e.target)) {
+                shopPanel.classList.add('translate-x-full');
+            }
+        });
+
+        // Initialize
+        loadGame();
+        updateUI();
+    </script>
+</body>
+</html>
